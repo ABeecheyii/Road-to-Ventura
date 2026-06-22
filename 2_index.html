@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road to Ventura — Marathon Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root{
+    --bg:#0E1417; --surface:#172127; --surface2:#1F2C33; --line:#2A3A43;
+    --text:#EAF2F5; --muted:#8DA2AD; --faint:#5C707A;
+    --accent:#F4A23A; --done:#43C59E; --warn:#F2C14E; --bad:#E15554;
+    --z1:#3FA7D6; --z2:#43C59E; --z3:#F2C14E; --z4:#F2843A; --z5:#E15554;
+    --carb:#F2843A; --pro:#43C59E; --fat:#F4D03F;
+    --radius:16px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{padding:max(14px,env(safe-area-inset-top)) 14px calc(86px + env(safe-area-inset-bottom));max-width:540px;margin:0 auto;line-height:1.45}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .wordmark{font-weight:800;letter-spacing:-.01em;font-size:18px}
+  .wordmark b{color:var(--accent)}
+  .countdown{text-align:right;line-height:1.1}
+  .countdown .big{font-size:22px;font-weight:800;color:var(--accent)}
+  .countdown .lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+  .nav{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:8px;margin-bottom:12px}
+  .nav button.arrow{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-size:18px;cursor:pointer;flex:0 0 auto}
+  .nav .datewrap{flex:1;text-align:center;cursor:pointer}
+  .nav .dow{font-size:13px;color:var(--muted);font-weight:600}
+  .nav .date{font-size:16px;font-weight:700}
+  .nav .tag{font-size:11px;color:var(--accent);font-weight:700;margin-top:1px}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;overflow:hidden}
+  .card.run{position:relative}
+  .card.run:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--zc,var(--z2))}
+  .card .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+  .card .title{font-size:17px;font-weight:800}
+  .card .sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .sectlabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800;margin:18px 2px 8px}
+
+  .figures{display:flex;align-items:flex-end;gap:18px;margin:4px 0 12px}
+  .dist{display:flex;align-items:baseline;gap:4px}
+  .dist .v{font-size:46px;font-weight:800;letter-spacing:-.02em;line-height:.9}
+  .dist .u{font-size:14px;color:var(--muted);font-weight:700}
+  .zonechip{display:inline-flex;flex-direction:column;padding:7px 12px;border-radius:11px;background:color-mix(in srgb,var(--zc) 16%,transparent);border:1px solid color-mix(in srgb,var(--zc) 45%,transparent)}
+  .zonechip .zn{font-size:12px;font-weight:800;color:var(--zc)}
+  .zonechip .bpm{font-size:13px;font-weight:700}
+  .zonechip .bpm small{color:var(--muted);font-weight:600}
+  .spectrum{display:flex;gap:3px;margin:2px 0 14px}
+  .spectrum .seg{flex:1;height:7px;border-radius:3px;opacity:.32}
+  .spectrum .seg.on{opacity:1;transform:scaleY(1.5)}
+  .effort{font-size:14px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:14px}
+  .effort b{color:var(--accent)}
+
+  .toggle{width:100%;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-size:15px;font-weight:700;padding:14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+  .toggle .box{width:20px;height:20px;border-radius:6px;border:2px solid var(--faint);flex:0 0 auto}
+  .toggle.on{background:color-mix(in srgb,var(--done) 16%,transparent);border-color:var(--done);color:var(--done)}
+  .toggle.on .box{background:var(--done);border-color:var(--done);position:relative}
+  .toggle.on .box:after{content:"✓";position:absolute;inset:0;color:#0E1417;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:900}
+
+  .actuals{margin-top:12px;display:none;grid-template-columns:1fr 1fr;gap:10px}
+  .actuals.open{display:grid}
+  .actuals .full{grid-column:1/-1}
+  .field label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}
+  .field input,.field textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font-size:15px;font-family:inherit}
+  .field textarea{resize:vertical;min-height:44px}
+  .linkbtn{background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;padding:8px 0 0;text-decoration:underline}
+
+  .ex{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+  .ex:first-of-type{border-top:none}
+  .ex .ck{width:22px;height:22px;border-radius:7px;border:2px solid var(--faint);flex:0 0 auto;margin-top:1px}
+  .ex.done .ck{background:var(--done);border-color:var(--done);position:relative}
+  .ex.done .ck:after{content:"✓";position:absolute;inset:0;color:#0E1417;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .ex .info{flex:1;min-width:0}
+  .ex .en{font-size:15px;font-weight:700}
+  .ex.done .en{color:var(--muted);text-decoration:line-through}
+  .ex .ed{font-size:13px;color:var(--muted)}
+  .strnote{font-size:12px;color:var(--muted);background:var(--surface2);border:1px dashed var(--line);border-radius:10px;padding:9px 11px;margin-bottom:6px}
+  .rest{text-align:center;color:var(--faint);font-size:14px;padding:18px 0;font-weight:600}
+
+  /* bars / macros */
+  .bar{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden;margin-top:5px}
+  .bar > i{display:block;height:100%;border-radius:6px;background:var(--accent)}
+  .kcalbig{font-size:40px;font-weight:800;letter-spacing:-.02em}
+  .kcalbig small{font-size:14px;color:var(--muted);font-weight:700}
+  .macros{display:flex;gap:8px;margin-top:14px}
+  .macro{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .macro .mv{font-size:18px;font-weight:800}
+  .macro .ml{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .macro.p{border-color:color-mix(in srgb,var(--pro) 40%,transparent)} .macro.p .mv{color:var(--pro)}
+  .macro.c{border-color:color-mix(in srgb,var(--carb) 40%,transparent)} .macro.c .mv{color:var(--carb)}
+  .macro.f{border-color:color-mix(in srgb,var(--fat) 40%,transparent)} .macro.f .mv{color:var(--fat)}
+
+  .meal{padding:12px 0;border-top:1px solid var(--line)}
+  .meal:first-of-type{border-top:none}
+  .meal h4{margin:0 0 4px;font-size:14px}
+  .meal h4 span{color:var(--muted);font-weight:600;font-size:12px}
+  .meal ul{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
+  .meal ul li{margin:3px 0}
+
+  /* stats */
+  .stats{display:flex;gap:8px;margin-bottom:12px}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px;text-align:center}
+  .stat .v{font-size:22px;font-weight:800}
+  .stat .v small{font-size:12px;color:var(--muted);font-weight:700}
+  .stat .l{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:1px}
+
+  /* week list */
+  .wkday{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+  .wkday:first-of-type{border-top:none}
+  .wkday .dn{width:38px;font-size:12px;font-weight:800;color:var(--muted)}
+  .wkday.today .dn{color:var(--accent)}
+  .wkday .desc{flex:1;min-width:0}
+  .wkday .dt{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wkday .dm{font-size:12px;color:var(--muted)}
+  .wkday .dots{display:flex;gap:5px;flex:0 0 auto}
+  .wkday .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  .wkday .dot.r{background:var(--z2)} .wkday .dot.s{background:var(--accent)}
+
+  /* goals */
+  .goal{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--line)}
+  .goal:first-of-type{border-top:none}
+  .goal .gi{flex:1}
+  .goal .gn{font-size:14px;font-weight:600}
+  .goal .gp{font-size:12px;color:var(--muted)}
+  .goal .badge{font-size:12px;font-weight:800;padding:3px 9px;border-radius:8px}
+  .badge.ok{background:color-mix(in srgb,var(--done) 18%,transparent);color:var(--done)}
+  .badge.mid{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .badge.no{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+
+  /* month grid */
+  .mhead{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:5px}
+  .mhead div{text-align:center;font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.05em}
+  .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .mcell{aspect-ratio:1;border-radius:9px;background:var(--surface2);border:1px solid var(--line);padding:4px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;min-height:0}
+  .mcell.out{opacity:.28}
+  .mcell.today{border-color:var(--accent)}
+  .mcell .mdn{font-size:11px;font-weight:700;color:var(--muted)}
+  .mcell.today .mdn{color:var(--accent)}
+  .mcell .mmi{font-size:11px;font-weight:800;color:var(--text)}
+  .mcell .mdot{width:6px;height:6px;border-radius:50%;background:var(--done);align-self:flex-end}
+  .mcell.long{background:color-mix(in srgb,var(--z2) 14%,transparent)}
+  .mcell.race{background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:var(--accent)}
+
+  /* on-track banner */
+  .track{border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid}
+  .track.ok{background:color-mix(in srgb,var(--done) 12%,transparent);border-color:var(--done)}
+  .track.mid{background:color-mix(in srgb,var(--warn) 12%,transparent);border-color:var(--warn)}
+  .track.no{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:var(--bad)}
+  .track .tt{font-size:18px;font-weight:800;margin-bottom:4px}
+  .track.ok .tt{color:var(--done)} .track.mid .tt{color:var(--warn)} .track.no .tt{color:var(--bad)}
+  .track .tb{font-size:14px;color:var(--text)}
+
+  svg.spark{width:100%;height:80px;display:block}
+
+  /* tab bar */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 92%,transparent);
+    backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:50}
+  .tabbar .tab{flex:1;background:none;border:none;color:var(--faint);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;font-family:inherit}
+  .tabbar .tab .ic{font-size:19px;line-height:1}
+  .tabbar .tab .tl{font-size:10px;font-weight:700;letter-spacing:.02em}
+  .tabbar .tab.on{color:var(--accent)}
+
+  details.settings{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:4px 14px;margin-top:6px}
+  details.settings summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:11px 0;list-style:none}
+  details.settings summary::-webkit-details-marker{display:none}
+  details.settings summary:before{content:"⚙  "}
+  .setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .setrow input{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px;font-size:14px;font-family:inherit;width:120px}
+  .danger{color:var(--bad);background:none;border:none;font-size:13px;font-weight:700;cursor:pointer;padding:11px 0;text-decoration:underline}
+  .msg{text-align:center;padding:34px 16px;color:var(--muted)}
+  .msg .big{font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .disc{font-size:11px;color:var(--faint);text-align:center;margin:8px 4px 0;line-height:1.5}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">Road to <b>Ventura</b></div>
+  <div class="countdown"><div class="big num" id="cd">—</div><div class="lbl">days to race</div></div>
+</header>
+
+<div id="view"></div>
+
+<nav class="tabbar" id="tabbar"></nav>
+
+<script>
+(function(){
+  "use strict";
+  const KEY="mt:data";
+  const DEFAULTS={settings:{startDate:"2026-06-22",raceDate:"2027-04-18",maxHR:184,
+    weightStart:249,weightGoal:215,heightIn:78,age:34,sex:"male"},logs:{}};
+
+  /* ---------- storage ---------- */
+  async function load(){
+    if(window.storage){try{const r=await window.storage.get(KEY);if(r&&r.value)return JSON.parse(r.value);}catch(e){}return null;}
+    try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null;}catch(e){return null;}
+  }
+  let st=null;
+  function save(){clearTimeout(st);st=setTimeout(async()=>{const s=JSON.stringify(data);
+    if(window.storage){try{await window.storage.set(KEY,s);return;}catch(e){}}
+    try{localStorage.setItem(KEY,s);}catch(e){}},250);}
+
+  /* ---------- dates ---------- */
+  const DAY=86400000;
+  function parse(iso){const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d,12,0,0);}
+  function iso(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
+  function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return iso(d);}
+  function todayISO(){return iso(new Date());}
+  const DOW=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const DOWF=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  function pdow(dt){return (dt.getDay()+6)%7;}
+  function fmtShort(dt){return dt.toLocaleDateString(undefined,{month:"short",day:"numeric"});}
+
+  /* ---------- plan data ---------- */
+  const WK=[
+    {lr:4,wk:12},{lr:5,wk:14},{lr:5,wk:15},{lr:4,wk:12,dl:1},{lr:6,wk:16},{lr:6,wk:18},
+    {lr:7,wk:19},{lr:5,wk:14,dl:1},{lr:7,wk:20},{lr:8,wk:22},
+    {lr:8,wk:23},{lr:9,wk:25},{lr:6,wk:18,dl:1},{lr:9,wk:26},{lr:10,wk:27},
+    {lr:10,wk:28,sp:"10K tune-up (optional)"},{lr:7,wk:20,dl:1},{lr:11,wk:29},{lr:12,wk:30},{lr:12,wk:30},
+    {lr:8,wk:22,dl:1},{lr:13,wk:31},{lr:13,wk:32},{lr:10,wk:24,dl:1},{lr:14,wk:32},
+    {lr:14,wk:33},{lr:15,wk:34},{lr:16,wk:35},{lr:11,wk:26,dl:1},{lr:16,wk:36},
+    {lr:17,wk:37},{lr:18,wk:38},{lr:13,wk:28,dl:1},{lr:13.1,wk:32,sp:"Half-marathon tune-up"},{lr:18,wk:38},
+    {lr:19,wk:39},{lr:18,wk:38},{lr:14,wk:30,dl:1},{lr:19,wk:39},{lr:20,wk:40,sp:"PEAK long run"},
+    {lr:9,wk:25,tp:1},{lr:7,wk:18,tp:1},{race:1}
+  ];
+  const PHN={1:"Foundation",2:"Base Building",3:"Marathon Build",4:"Taper"};
+  function phaseOf(pw){return pw<=10?1:pw<=25?2:pw<=40?3:4;}
+  function r5(x){return Math.max(0,Math.round(x*2)/2);}
+  function distribute(t,lr){const rem=Math.max(0,t-lr);
+    return [r5(rem*.22),r5(rem*.26),Math.max(1.5,r5(rem*.12)),r5(rem*.24),Math.max(1,r5(rem*.06)),lr,Math.max(1.5,r5(rem*.10))];}
+  function tuesday(ph,pw){
+    if(ph===1)return{t:"Easy + Strides",z:2,e:"Easy run, then <b>4–6 × 20s</b> relaxed strides. Smooth, not sprints."};
+    if(ph===2)return pw<16?{t:"Tempo Run",z:3,e:"1.5 mi WU → <b>12–15 min tempo (Z3)</b> → 1.5 mi CD."}
+      :{t:"Tempo / Hills",z:4,e:"<b>2 × 10 min tempo</b> (Z3–Z4) <b>or</b> 6–8 × 60s hills."};
+    if(ph===3)return(pw%2===0)?{t:"Marathon-Pace Run",z:3,e:"Hold <b>4–5 mi at marathon effort</b> mid-run — rehearse race feel."}
+      :{t:"Threshold Intervals",z:4,e:"2 mi WU → <b>3 × 8 min @ Z4</b> (2 min jog) → 1 mi CD."};
+    return{t:"Race Sharpener",z:3,e:"<b>2–3 × 5 min @ marathon/Z3</b> with easy jog between. Stay fresh."};
+  }
+  const LRN={26:"Last 3 mi @ marathon pace (Z3).",32:"Last 4 mi @ MP — <b>full fueling rehearsal</b>.",
+    36:"Last 6 mi @ MP (Z3) — key confidence run.",40:"<b>Peak long run</b>, 3 weeks out. Easy, time on feet."};
+
+  const SESS={
+    A:{title:"Upper A — Push",note:"2–3 RIR · controlled tempo",items:[
+      {n:"Flat DB Bench Press",d:"4 × 6–10 · tempo 3-0-1-0 · rest 2 min"},
+      {n:"Standing DB Overhead Press",d:"3 × 8–10 · rest 90s"},
+      {n:"Incline DB Press",d:"3 × 10–12 · bench 30–45° · rest 90s"},
+      {n:"Bench Dips (feet out to progress)",d:"3 × 8–12 · rest 90s"},
+      {n:"DB Lateral Raise",d:"3 × 12–15 · light & strict"},
+      {n:"DB Overhead Triceps Extension",d:"2 × 12–15"}]},
+    B:{title:"Upper B — Pull (posture priority)",note:"Keeps you tall at mile 22",items:[
+      {n:"Single-Arm DB Row",d:"4 × 8–10 / side · rest 90s"},
+      {n:"Chest-Supported Incline DB Row",d:"3 × 10–12 · rest 90s"},
+      {n:"DB Pullover",d:"3 × 10–12 · lats"},
+      {n:"Bent-Over DB Reverse Fly",d:"3 × 15–20 · rear delts"},
+      {n:"DB Biceps Curl",d:"3 × 10–12"},
+      {n:"DB Hammer Curl",d:"2 × 10–12"}]},
+    C:{title:"Upper C — Arms & Shoulders (optional)",note:"Lighter accessory · superset pairs",items:[
+      {n:"Push-Up variation",d:"3 × stop 2 shy of failure"},
+      {n:"Chest-Supported DB Row",d:"3 × 10–15"},
+      {n:"DB Arnold Press",d:"3 × 10–12"},
+      {n:"DB Lateral Raise",d:"3 × 15"},
+      {n:"DB Curl + DB Skull Crusher (superset)",d:"3 × 12 each"},
+      {n:"DB Reverse Fly (light)",d:"2 × 20"}]},
+    core:{title:"Core Circuit",note:"Quick anti-rotation work after the run",items:[
+      {n:"Dead Bug",d:"2 × 10 / side"},{n:"Side Plank",d:"2 × 30–45s / side"},
+      {n:"Bird-Dog",d:"2 × 10 / side"},{n:"Front Plank",d:"2 × 45–60s"}]},
+    LC:{title:"Runner Lower / Core",note:"Highest-value work for injury-free 26.2",items:[
+      {n:"Goblet Squat (DB)",d:"3 × 8–10"},
+      {n:"Bulgarian Split Squat (DB, foot on bench)",d:"3 × 8–10 / leg"},
+      {n:"DB Romanian Deadlift",d:"3 × 8–10"},
+      {n:"Standing Calf Raise (DB)",d:"3 × 12–15"},
+      {n:"DB Hip Thrust (shoulders on bench)",d:"3 × 12"},
+      {n:"Step-Up onto Bench (DB)",d:"2 × 10 / leg"},
+      {n:"Weighted Dead Bug",d:"2 × 10 / side"}]},
+    LClight:{title:"Lower / Core — Light",note:"Flush the legs",items:[
+      {n:"Bodyweight / light Goblet Squat",d:"2 × 12"},
+      {n:"Single-Leg Glute Bridge",d:"2 × 12 / leg"},
+      {n:"Calf Raise",d:"2 × 15"},{n:"Side Plank",d:"2 × 30s / side"},{n:"Bird-Dog",d:"2 × 10 / side"}]}
+  };
+  const STRDOW=["A","core","B","LC","C",null,"LClight"];
+  function strNote(ph){return ph===3?"Build phase: keep strength at <b>maintenance</b> — ~2 sets, 3 RIR."
+    :ph===4?"Taper: <b>light or skip</b>. Last real session ~7 days out.":null;}
+
+  const ZM=[null,{n:"Z1 Recovery",c:"--z1",lo:.5,hi:.6},{n:"Z2 Aerobic",c:"--z2",lo:.6,hi:.7},
+    {n:"Z3 Tempo",c:"--z3",lo:.7,hi:.8},{n:"Z4 Threshold",c:"--z4",lo:.8,hi:.9},{n:"Z5 VO₂max",c:"--z5",lo:.9,hi:1}];
+  function bpm(z){const m=data.settings.maxHR;return [Math.round(m*ZM[z].lo),Math.round(m*ZM[z].hi)];}
+
+  /* ---------- nutrition ---------- */
+  function lbKg(l){return l*0.453592;}
+  function latestWeight(){let best=null,bd=null;for(const k in data.logs){const w=data.logs[k].weight;
+    if(w&&(!bd||k>bd)){bd=k;best=parseFloat(w);}}return best||data.settings.weightStart;}
+  function bmr(){const s=data.settings,kg=lbKg(latestWeight()),cm=s.heightIn*2.54;
+    return 10*kg+6.25*cm-5*s.age+(s.sex==="male"?5:-161);}
+  function maintBase(){return bmr()*1.5;}
+  function kcalMile(){return Math.round(latestWeight()*0.47);}
+  function calTarget(dp){if(!dp||dp.state!=="day")return null;
+    let m=maintBase()+dp.dist*kcalMile();
+    let def=(dp.dist>=13||dp.phase===4||dp.race)?0:500;
+    return Math.round((m-def)/10)*10;}
+  function proteinT(){return Math.round(lbKg(latestWeight())*1.8/5)*5;}
+  function fatT(){return Math.round(lbKg(latestWeight())*0.9/5)*5;}
+  function carbT(dp){const cal=calTarget(dp);if(!cal)return null;
+    return Math.max(0,Math.round((cal-proteinT()*4-fatT()*9)/4/5)*5);}
+
+  /* ---------- day plan ---------- */
+  function dayFor(s){
+    const dt=parse(s),start=parse(data.settings.startDate);
+    const wi=Math.floor((dt-start)/(7*DAY)),dow=pdow(dt);
+    if(wi<0)return{state:"pre",start:data.settings.startDate};
+    if(wi>WK.length-1)return{state:"post"};
+    const w=WK[wi],pw=wi+1,ph=phaseOf(pw);
+    if(w.race){const RW=[
+      {t:"Shakeout + Strides",dist:3,z:2,e:"Easy with 4 strides. Legs should feel springy."},
+      {t:"Easy + Strides",dist:2,z:1,e:"Short and light."},
+      {t:"Rest or 1 mi",dist:1,z:1,e:"Optional easy mile or full rest."},
+      {t:"Easy + Strides",dist:2,z:1,e:"Loose and short."},
+      {t:"Rest / Shakeout",dist:1,z:1,e:"Stay off your feet. Carb-load."},
+      {t:"Pre-Race Shakeout",dist:1.5,z:1,e:"1.5 mi + 3 strides. Relax."},
+      {t:"🏁 MARATHON — 26.2",dist:26.2,z:2,e:"<b>Start slower than feels right.</b> Fuel every 30–45 min."}][dow];
+      return{state:"day",pw,ph,phase:ph,dow,title:RW.t,dist:RW.dist,zone:RW.z,effort:RW.e,
+        strength:null,strengthNote:"Race week — no heavy lifting.",deload:false,special:dow===6?"RACE DAY":"Taper",race:dow===6,long:dow===6};}
+    const d=distribute(w.wk,w.lr);
+    let title,zone,effort;
+    if(dow===0){title="Easy Run";zone=2;effort="Conversational aerobic miles.";}
+    else if(dow===1){const q=tuesday(ph,pw);title=q.t;zone=q.z;effort=q.e;}
+    else if(dow===2){title="Recovery Run";zone=1;effort="Short & gentle — active recovery.";}
+    else if(dow===3){title="Easy Steady";zone=2;effort="Relaxed aerobic effort.";}
+    else if(dow===4){title="Streak-Saver";zone=1;effort="One easy mile. Fresh legs for tomorrow.";}
+    else if(dow===5){title="Long Run";zone=2;effort=LRN[pw]||"Easy (Z2). Time on feet beats pace.";}
+    else{title="Recovery + Mobility";zone=1;effort="Flush the legs, then stretch.";}
+    return{state:"day",pw,ph,phase:ph,dow,title,dist:d[dow],zone,effort,
+      strength:STRDOW[dow],strengthNote:strNote(ph),deload:!!w.dl,special:w.sp||null,race:false,long:dow===5};
+  }
+  function weekInfo(s){const dt=parse(s),start=parse(data.settings.startDate);
+    const wi=Math.floor((dt-start)/(7*DAY));if(wi<0||wi>WK.length-1)return null;
+    return{wi,pw:wi+1,ph:phaseOf(wi+1),w:WK[wi]};}
+
+  /* ---------- logs ---------- */
+  function log(s){return data.logs[s]||(data.logs[s]={});}
+  function isRun(s){return !!(data.logs[s]&&data.logs[s].runDone);}
+  function isStr(s){return !!(data.logs[s]&&data.logs[s].strDone);}
+  function loggedMiles(s){const L=data.logs[s];if(!L||!L.runDone)return 0;
+    const dp=dayFor(s);return parseFloat(L.actualMiles)||(dp.state==="day"?dp.dist:0);}
+
+  /* ---------- state ---------- */
+  let data=null,cur=todayISO(),viewName="today",monthCursor=null;
+
+  function el(h){const t=document.createElement("template");t.innerHTML=h.trim();return t.content.firstChild;}
+  function setHeader(){document.getElementById("cd").textContent=Math.max(0,Math.round((parse(data.settings.raceDate)-parse(todayISO()))/DAY));}
+
+  /* ---------- TODAY ---------- */
+  function isHeat(s){const m=parse(s).getMonth();return m>=5&&m<=8;} // Jun–Sep
+  function coachNote(dp,s){
+    if(dp.state!=="day")return"";
+    const out=[];
+    if(dp.race){return dp.long?"Trust the taper — your legs are ready. Run the first 10 miles easier than feels right.":"";}
+    if(dp.deload)out.push("📉 <b>Down week</b> — planned recovery. Resist adding miles; you're banking the adaptation from the hard weeks.");
+    if(dp.dow===5){ // long
+      out.push("Run it <b>easy and even</b> — pacing discipline now is what gives you strong legs at mile 22. Practice your fueling on anything over ~75 min.");
+      if(dp.dist>=13)out.push("This is a <b>no-deficit day</b> — eat to recover, not to lose.");
+    } else if(dp.dow===1&&dp.ph>=2){ // quality
+      out.push("Warm up thoroughly, then run the efforts <b>controlled and even</b>, not maximal — easy jog recoveries between. Nail the structure, not the heroics.");
+    } else if(dp.zone===1){ // recovery/streak
+      out.push("True recovery: short and gentle, <b>Z1 only</b>. The point is blood flow, not fitness — keep the ego off it.");
+    } else if(dp.zone===2){ // easy
+      out.push("Stay in <b>Z2</b> even if the pace feels slow — easy aerobic miles build your engine. If you can't speak full sentences, ease off.");
+    }
+    if(isHeat(s)&&dp.dist>=2)out.push("🔥 <b>Redlands heat:</b> run at dawn, slow down, hydrate. Judge effort by feel — your HR runs high in the heat.");
+    return out.join("<br>");
+  }
+  function fuelFocus(dp,nx){
+    if(dp.state!=="day")return null;
+    const tmrLong=nx&&nx.state==="day"&&nx.long&&!nx.race, tmrRace=nx&&nx.state==="day"&&nx.race,
+          tmrQ=nx&&nx.state==="day"&&nx.dow===1&&nx.ph>=2;
+    const todayLong=dp.long&&!dp.race, todayQ=dp.dow===1&&dp.ph>=2;
+    let body;
+    if(dp.race){body="🏁 <b>Race fuel:</b> ~60 g carbs 2–3 h before the gun, then <b>30–60 g carbs/hr</b> from mile 4 on. Nothing new today — only what your gut has practiced.";}
+    else if(todayLong){body="🏃 <b>Don’t run this one fasted:</b> ~40–60 g carbs first (toast + honey or a banana), 30–60 g carbs/hr during (practice your gels — not just on hikes), then protein + carbs within the hour after. <b>No-deficit day</b> — replace what you burn.";}
+    else if(tmrRace){body="🏁 <b>Race tomorrow:</b> carb-load and hydrate today, go easy on heavy fiber, and lay out your kit and gels tonight. Sleep early.";}
+    else if(tmrLong){body="🍝 <b>Tomorrow is a "+nx.dist+"-mile long run.</b> Top off glycogen today — extra carbs at lunch and dinner (rice, pasta, potatoes), hydrate well, and set out your fuel tonight.";}
+    else if(tmrQ){body="🔧 <b>Tomorrow is a hard session</b> ("+nx.title+"). Don't skimp on carbs today — a solid carb dinner powers the workout.";}
+    else if(todayQ){body="🔧 <b>Post-workout:</b> protein + carbs within the hour to recover. Otherwise a normal ~500-deficit day — hit protein at every meal.";}
+    else{body="Standard deficit day: hit your <b>~"+proteinT()+" g protein</b>, keep carbs around your run, and fill the rest with lean protein and vegetables. Hydrate.";}
+    return body;
+  }
+
+  function renderToday(){
+    const V=document.getElementById("view");V.innerHTML="";
+    const dt=parse(cur),dp=dayFor(cur);
+    const nav=el('<div class="nav"><button class="arrow" id="pv">‹</button><div class="datewrap" id="tb"><div class="dow">'+DOWF[pdow(dt)]+'</div><div class="date num">'+dt.toLocaleDateString(undefined,{month:"long",day:"numeric"})+'</div><div class="tag" id="tg"></div></div><button class="arrow" id="nx">›</button></div>');
+    V.appendChild(nav);
+    let tg="";if(dp.state==="pre")tg="Plan starts "+fmtShort(parse(dp.start));
+      else if(dp.state==="post")tg="🎉 You did it";
+      else tg="Week "+dp.pw+" / 43 · "+PHN[dp.ph]+(dp.deload?" · Down week":"");
+    nav.querySelector("#tg").innerHTML=tg;
+    nav.querySelector("#pv").onclick=()=>{cur=addDays(cur,-1);renderToday();};
+    nav.querySelector("#nx").onclick=()=>{cur=addDays(cur,1);renderToday();};
+    nav.querySelector("#tb").onclick=()=>{cur=todayISO();renderToday();};
+
+    if(dp.state==="pre"){V.appendChild(el('<div class="card"><div class="msg"><div class="big">Plan begins '+fmtShort(parse(dp.start))+'</div>Set your start date in Settings, or tap the date to jump to today.</div></div>'));return;}
+    if(dp.state==="post"){V.appendChild(el('<div class="card"><div class="msg"><div class="big">🏁 Marathoner.</div>The plan is complete. Recover well, then pick the next one.</div></div>'));return;}
+    const L=log(cur),zc="var("+ZM[dp.zone].c+")",b=bpm(dp.zone);
+
+    // FUEL FOCUS (top of the day) — based on today's effort and tomorrow's
+    const ff=fuelFocus(dp,dayFor(addDays(cur,1)));
+    if(ff)V.appendChild(el('<div class="card" style="border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)"><div class="eyebrow" style="color:var(--accent)">Fuel focus</div><div style="font-size:14px;margin-top:6px">'+ff+'</div></div>'));
+
+    // RUN
+    const run=el('<div class="card run" style="--zc:'+zc+'"></div>');
+    run.appendChild(el('<div class="head"><div><div class="title">'+dp.title+'</div>'+(dp.special?'<div class="sub" style="color:var(--accent);font-weight:700">★ '+dp.special+'</div>':'<div class="sub">'+DOWF[dp.dow]+' run</div>')+'</div></div>'));
+    run.appendChild(el('<div class="figures"><div class="dist"><span class="v num">'+dp.dist+'</span><span class="u">mi</span></div><div class="zonechip" style="--zc:'+zc+'"><span class="zn">'+ZM[dp.zone].n+'</span><span class="bpm num">'+b[0]+'–'+b[1]+' <small>bpm</small></span></div></div>'));
+    let sp='<div class="spectrum">';for(let z=1;z<=5;z++)sp+='<div class="seg'+(z===dp.zone?" on":"")+'" style="background:var('+ZM[z].c+')"></div>';sp+='</div>';
+    run.appendChild(el(sp));
+    run.appendChild(el('<div class="effort">'+dp.effort+'</div>'));
+    const cn=coachNote(dp,cur);
+    if(cn)run.appendChild(el('<div class="strnote" style="margin:-6px 0 14px;border-style:solid">'+cn+'</div>'));
+    const rb=el('<button class="toggle'+(L.runDone?" on":"")+'"><span class="box"></span><span>'+(L.runDone?"Run complete":"Mark run done")+'</span></button>');
+    rb.onclick=()=>{L.runDone=!L.runDone;save();renderToday();};run.appendChild(rb);
+    const showA=!!(L.runDone||L.actualMiles||L.avgHR||L.notes);
+    run.appendChild(el('<button class="linkbtn" id="lt">'+(showA?"Hide":"Log")+' actual run ▾</button>'));
+    const act=el('<div class="actuals'+(showA?" open":"")+'"><div class="field"><label>Actual miles</label><input type="number" step="0.1" inputmode="decimal" id="am" value="'+(L.actualMiles||"")+'"></div><div class="field"><label>Avg HR</label><input type="number" inputmode="numeric" id="ah" value="'+(L.avgHR||"")+'"></div><div class="field full"><label>Notes</label><textarea id="an" placeholder="How did it feel?">'+(L.notes||"")+'</textarea></div></div>');
+    run.appendChild(act);V.appendChild(run);
+    run.querySelector("#lt").onclick=()=>act.classList.toggle("open");
+    run.querySelector("#am").oninput=e=>{L.actualMiles=e.target.value;save();};
+    run.querySelector("#ah").oninput=e=>{L.avgHR=e.target.value;save();};
+    run.querySelector("#an").oninput=e=>{L.notes=e.target.value;save();};
+
+    // STRENGTH
+    if(dp.strength){const S=SESS[dp.strength],c=el('<div class="card"></div>');
+      c.appendChild(el('<div class="head"><div><div class="title">'+S.title+'</div><div class="sub">'+S.note+'</div></div></div>'));
+      if(dp.strengthNote)c.appendChild(el('<div class="strnote">'+dp.strengthNote+'</div>'));
+      L.ex=L.ex||{};
+      S.items.forEach((it,i)=>{const key=dp.strength+":"+i,dn=!!L.ex[key];
+        const row=el('<div class="ex'+(dn?" done":"")+'"><span class="ck"></span><div class="info"><div class="en">'+it.n+'</div><div class="ed">'+it.d+'</div></div></div>');
+        row.onclick=()=>{L.ex[key]=!L.ex[key];save();renderToday();};c.appendChild(row);});
+      const all=S.items.every((it,i)=>L.ex[dp.strength+":"+i]);
+      const sb=el('<button class="toggle'+((L.strDone||all)?" on":"")+'" style="margin-top:14px"><span class="box"></span><span>'+((L.strDone||all)?"Strength complete":"Mark strength done")+'</span></button>');
+      sb.onclick=()=>{L.strDone=!(L.strDone||all);if(L.strDone)S.items.forEach((it,i)=>L.ex[dp.strength+":"+i]=true);save();renderToday();};
+      c.appendChild(sb);V.appendChild(c);
+    } else if(!dp.race){V.appendChild(el('<div class="card"><div class="rest">No strength session today — just the run.</div></div>'));}
+
+    // FUEL mini
+    const cal=calTarget(dp),eaten=parseFloat(L.kcal)||0,prot=parseFloat(L.protein)||0;
+    const fc=el('<div class="card"></div>');
+    fc.appendChild(el('<div class="head"><div><div class="title">Fuel today</div><div class="sub">'+(dp.dist>=13?"Long-run day — eat to recover, no deficit":"~500 kcal deficit day")+'</div></div></div>'));
+    fc.appendChild(el('<div><span class="kcalbig num">'+(cal).toLocaleString()+'</span> <span class="kcalbig"><small>kcal target</small></span></div>'));
+    fc.appendChild(el('<div class="bar"><i id="fkbar" style="width:'+Math.min(100,Math.round(eaten/cal*100))+'%"></i></div>'));
+    fc.appendChild(el('<div class="sub" id="fkleft" style="margin-top:6px">'+eaten.toLocaleString()+' logged · '+Math.max(0,cal-eaten).toLocaleString()+' left</div>'));
+    fc.appendChild(el('<div class="macros"><div class="macro p"><div class="mv num">'+proteinT()+'g</div><div class="ml">Protein</div></div><div class="macro c"><div class="mv num">'+carbT(dp)+'g</div><div class="ml">Carbs</div></div><div class="macro f"><div class="mv num">'+fatT()+'g</div><div class="ml">Fat</div></div></div>'));
+    const fa=el('<div class="actuals open" style="margin-top:14px"><div class="field"><label>Calories eaten</label><input type="number" inputmode="numeric" id="fk" value="'+(L.kcal||"")+'"></div><div class="field"><label>Protein (g)</label><input type="number" inputmode="numeric" id="fp" value="'+(L.protein||"")+'"></div><div class="field"><label>Weigh-in (lb, optional)</label><input type="number" step="0.1" inputmode="decimal" id="fw" value="'+(L.weight||"")+'"></div></div>');
+    fc.appendChild(fa);V.appendChild(fc);
+    fa.querySelector("#fk").oninput=e=>{L.kcal=e.target.value;save();
+      const ea=parseFloat(L.kcal)||0,bar=fc.querySelector("#fkbar"),lf=fc.querySelector("#fkleft");
+      if(bar)bar.style.width=Math.min(100,Math.round(ea/cal*100))+"%";
+      if(lf)lf.textContent=ea.toLocaleString()+" logged · "+Math.max(0,cal-ea).toLocaleString()+" left";};
+    fa.querySelector("#fp").oninput=e=>{L.protein=e.target.value;save();};
+    fa.querySelector("#fw").oninput=e=>{L.weight=e.target.value;save();};
+  }
+
+  /* ---------- WEEK ---------- */
+  function renderWeek(){
+    const V=document.getElementById("view");V.innerHTML="";
+    const wi=weekInfo(cur);
+    const nav=el('<div class="nav"><button class="arrow" id="pv">‹</button><div class="datewrap"><div class="dow">'+(wi?PHN[wi.ph]:"")+'</div><div class="date">'+(wi?"Week "+wi.pw+" of 43":"Outside plan")+'</div><div class="tag">'+(wi&&wi.w.dl?"Down week":(wi&&wi.w.sp?wi.w.sp:""))+'</div></div><button class="arrow" id="nx">›</button></div>');
+    V.appendChild(nav);
+    nav.querySelector("#pv").onclick=()=>{cur=addDays(cur,-7);renderWeek();};
+    nav.querySelector("#nx").onclick=()=>{cur=addDays(cur,7);renderWeek();};
+    if(!wi){V.appendChild(el('<div class="card"><div class="msg">This week is outside the 43-week plan.</div></div>'));return;}
+
+    const mon=addDays(cur,-pdow(parse(cur)));
+    // weekly summary
+    let tgt=0,lg=0,runs=0,doneRuns=0,strSched=0,strDone=0;
+    for(let i=0;i<7;i++){const di=addDays(mon,i),dp=dayFor(di);if(dp.state!=="day")continue;
+      tgt+=dp.dist;lg+=loggedMiles(di);runs++;if(isRun(di))doneRuns++;
+      if(dp.strength){strSched++;if(isStr(di))strDone++;}}
+    const sum=el('<div class="card"><div class="head"><div><div class="title">Week target</div><div class="sub">'+PHN[wi.ph]+' · Phase '+wi.ph+'</div></div></div></div>');
+    sum.appendChild(el('<div class="sub">Mileage</div><div class="bar"><i style="width:'+Math.min(100,Math.round(lg/tgt*100||0))+'%"></i></div><div class="sub" style="margin-top:5px">'+(Math.round(lg*10)/10)+' / '+(Math.round(tgt*10)/10)+' mi logged</div>'));
+    sum.appendChild(el('<div class="stats" style="margin:14px 0 0"><div class="stat"><div class="v num">'+doneRuns+'<small>/'+runs+'</small></div><div class="l">Runs</div></div><div class="stat"><div class="v num">'+strDone+'<small>/'+strSched+'</small></div><div class="l">Strength</div></div><div class="stat"><div class="v num">'+wi.w.lr+'<small> mi</small></div><div class="l">Long run</div></div></div>'));
+    V.appendChild(sum);
+
+    // day list
+    const list=el('<div class="card"></div>');
+    for(let i=0;i<7;i++){const di=addDays(mon,i),dp=dayFor(di);
+      const t=di===todayISO();
+      const sName=dp.strength?({A:"Push",B:"Pull",C:"Arms",core:"Core",LC:"Lower/Core",LClight:"Lower (light)"})[dp.strength]:"—";
+      const row=el('<div class="wkday'+(t?" today":"")+'"><div class="dn">'+DOW[i]+'</div><div class="desc"><div class="dt">'+dp.title+' · '+dp.dist+' mi</div><div class="dm">'+ZM[dp.zone].n.split(" ")[0]+' · '+sName+'</div></div><div class="dots"><span class="dot'+(isRun(di)?" r":"")+'"></span><span class="dot'+(isStr(di)?" s":"")+'"></span></div></div>');
+      row.onclick=()=>{cur=di;setView("today");};list.appendChild(row);}
+    V.appendChild(list);
+
+    // weekly goals
+    const goals=[
+      {n:"Hit weekly mileage",p:(Math.round(lg*10)/10)+" / "+(Math.round(tgt*10)/10)+" mi",ok:lg>=tgt*0.95,mid:lg>=tgt*0.8},
+      {n:"Complete the long run",p:wi.w.lr+" mi Saturday",ok:isRun(addDays(mon,5)),mid:false},
+      {n:"Run "+runs+" days",p:doneRuns+" / "+runs+" done",ok:doneRuns>=runs,mid:doneRuns>=runs-1},
+      {n:"Strength sessions",p:strDone+" / "+strSched+" done",ok:strSched>0&&strDone>=strSched,mid:strDone>=Math.max(1,strSched-1)}
+    ];
+    const gc=el('<div class="card"><div class="sectlabel" style="margin-top:0">Weekly goals</div></div>');
+    goals.forEach(g=>{const cls=g.ok?"ok":g.mid?"mid":"no",lbl=g.ok?"On track":g.mid?"Close":"Behind";
+      gc.appendChild(el('<div class="goal"><div class="gi"><div class="gn">'+g.n+'</div><div class="gp">'+g.p+'</div></div><span class="badge '+cls+'">'+lbl+'</span></div>'));});
+    V.appendChild(gc);
+  }
+
+  /* ---------- MONTH ---------- */
+  function renderMonth(){
+    const V=document.getElementById("view");V.innerHTML="";
+    if(!monthCursor){const t=parse(todayISO());monthCursor={y:t.getFullYear(),m:t.getMonth()};}
+    const {y,m}=monthCursor,first=new Date(y,m,1),label=first.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+    const nav=el('<div class="nav"><button class="arrow" id="pv">‹</button><div class="datewrap"><div class="date">'+label+'</div><div class="tag" id="mt"></div></div><button class="arrow" id="nx">›</button></div>');
+    V.appendChild(nav);
+    nav.querySelector("#pv").onclick=()=>{monthCursor={y:m===0?y-1:y,m:(m+11)%12};renderMonth();};
+    nav.querySelector("#nx").onclick=()=>{monthCursor={y:m===11?y+1:y,m:(m+1)%12};renderMonth();};
+
+    const grid=el('<div class="card"><div class="mhead"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div><div class="mgrid" id="g"></div></div>');
+    const g=grid.querySelector("#g");
+    const lead=(first.getDay()+6)%7,dim=new Date(y,m+1,0).getDate();
+    let mTgt=0,mLog=0,maxLong=0;
+    for(let i=0;i<lead;i++){const d=new Date(y,m,1-(lead-i));g.appendChild(el('<div class="mcell out"><div class="mdn">'+d.getDate()+'</div></div>'));}
+    for(let day=1;day<=dim;day++){const di=iso(new Date(y,m,day)),dp=dayFor(di),t=di===todayISO();
+      let cls="mcell"+(t?" today":""),mi="",dot="";
+      if(dp.state==="day"){mTgt+=dp.dist;mLog+=loggedMiles(di);if(dp.long&&dp.dist>maxLong)maxLong=dp.dist;
+        if(dp.race)cls+=" race";else if(dp.long)cls+=" long";
+        mi='<div class="mmi num">'+(dp.race?"🏁":dp.dist)+'</div>';
+        if(isRun(di))dot='<div class="mdot"></div>';}
+      const cell=el('<div class="'+cls+'"><div class="mdn">'+day+'</div>'+mi+dot+'</div>');
+      cell.onclick=()=>{cur=di;setView("today");};g.appendChild(cell);}
+    V.appendChild(grid);
+    grid.querySelector("#mt").textContent=(Math.round(mLog)+" / "+Math.round(mTgt)+" mi");
+
+    // monthly goals
+    const wLost=(()=>{ // weight change within month
+      let firstW=null,lastW=null,fd=null,ld=null;
+      for(let day=1;day<=dim;day++){const di=iso(new Date(y,m,day)),w=data.logs[di]&&data.logs[di].weight;
+        if(w){if(!fd){fd=di;firstW=parseFloat(w);}ld=di;lastW=parseFloat(w);}}
+      return(firstW!=null&&lastW!=null)?(firstW-lastW):null;})();
+    const gc=el('<div class="card"><div class="sectlabel" style="margin-top:0">Monthly targets</div></div>');
+    const mg=[
+      {n:"Monthly mileage",p:Math.round(mLog)+" / "+Math.round(mTgt)+" mi",ok:mLog>=mTgt*0.95,mid:mLog>=mTgt*0.8},
+      {n:"Longest run this month",p:maxLong+" mi planned",ok:maxLong>0,mid:false},
+      {n:"Weight trend (~4 lb/mo)",p:wLost==null?"Log weigh-ins to track":(wLost>=0?"−":"+")+Math.abs(Math.round(wLost*10)/10)+" lb",ok:wLost!=null&&wLost>=3,mid:wLost!=null&&wLost>=1}
+    ];
+    mg.forEach(g0=>{const cls=g0.ok?"ok":g0.mid?"mid":"no",lbl=g0.ok?"On track":g0.mid?"Close":(g0.p.indexOf("Log")>=0?"—":"Behind");
+      gc.appendChild(el('<div class="goal"><div class="gi"><div class="gn">'+g0.n+'</div><div class="gp">'+g0.p+'</div></div><span class="badge '+cls+'">'+lbl+'</span></div>'));});
+    V.appendChild(gc);
+  }
+
+  /* ---------- FUEL ---------- */
+  function renderFuel(){
+    const V=document.getElementById("view");V.innerHTML="";
+    const dp=dayFor(todayISO()),cal=dp.state==="day"?calTarget(dp):Math.round(maintBase()/10)*10;
+    const c=el('<div class="card"></div>');
+    c.appendChild(el('<div class="head"><div><div class="title">Your fuel plan</div><div class="sub">Eat for the work you do — deficit on easy days, fuel the long runs</div></div></div>'));
+    c.appendChild(el('<div class="sub">Today\'s target</div><div><span class="kcalbig num">'+cal.toLocaleString()+'</span> <span class="kcalbig"><small>kcal</small></span></div>'));
+    c.appendChild(el('<div class="macros"><div class="macro p"><div class="mv num">'+proteinT()+'g</div><div class="ml">Protein</div></div><div class="macro c"><div class="mv num">'+(dp.state==="day"?carbT(dp):"—")+'g</div><div class="ml">Carbs</div></div><div class="macro f"><div class="mv num">'+fatT()+'g</div><div class="ml">Fat</div></div></div>'));
+    c.appendChild(el('<div class="strnote" style="margin-top:14px">Maintenance ≈ <b>'+Math.round(maintBase()).toLocaleString()+' kcal</b> before running (active job). Each run mile adds ~'+kcalMile()+' kcal. Easy days carry a ~500 kcal deficit (~1 lb/week); long-run days are eaten back to maintenance to protect recovery.</div>'));
+    V.appendChild(c);
+
+    const strat=el('<div class="card" style="border-color:color-mix(in srgb,var(--accent) 45%,transparent)"><div class="sectlabel" style="margin-top:0;color:var(--accent)">Your strategy — biggest levers</div></div>');
+    [["1 · Front-load your day","Bigger, higher-protein breakfast and lunch so you reach the evening satisfied, not ravenous. The 9–10 PM binge really starts at an under-fed lunch."],
+     ["2 · Tame the night sweets","Your 2–4 nightly servings of junk are the single biggest calorie lever. Swap to a protein-forward treat (toolkit below) rather than leaning on willpower."],
+     ["3 · Sleep is the multiplier","~4.5 h is fueling those cravings. Even getting to 6 h would cut sugar cravings and improve recovery and fat loss more than any macro tweak."],
+     ["4 · Push protein up","From your current 120–180 g toward ~190–200 g — it blunts hunger and protects muscle while you lean down."]
+    ].forEach(x=>strat.appendChild(el('<div class="meal"><h4>'+x[0]+'</h4><div class="sub" style="color:var(--muted)">'+x[1]+'</div></div>')));
+    V.appendChild(strat);
+
+    const eve=el('<div class="card"><div class="sectlabel" style="margin-top:0">Evening cravings toolkit</div><div class="sub" style="color:var(--text)">Make the craving <b>smaller</b> (eat more earlier + sleep more), then give it a <b>protein-forward target</b> so it costs ~150 kcal instead of 600. You don’t have to ban sweets — just aim them better.</div><ul style="margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.7"><li>Greek yogurt + berries + honey + a few dark-chocolate chips</li><li>Protein hot chocolate (decaf) — you already make protein coffees</li><li>Protein/casein pudding, or cottage cheese + cinnamon + honey</li><li>Frozen banana + peanut butter “nice cream”</li><li>Keep <b>one</b> portioned treat and pair it with protein — not 2–4 servings</li><li>Easiest win: don’t keep the cookies in arm’s reach; pre-portion treats</li></ul></div>');
+    V.appendChild(eve);
+
+    const freq=el('<div class="card"><div class="sectlabel" style="margin-top:0">Meal frequency</div><div class="sub" style="color:var(--text)">3 meals + 1–2 snacks, with the <b>weight shifted earlier</b> in the day (bigger breakfast and lunch). Aim for <b>~40–50 g protein per meal</b>, spread out to hold muscle and blunt hunger. Put most carbs in the meals <b>around your runs</b>, and keep the evening lighter and protein-forward.</div></div>');
+    V.appendChild(freq);
+
+    const meals=[
+      {h:"Breakfast — make it bigger",k:"~600–700 kcal · 45 g protein",li:["Your Greek-yogurt bowl, leveled up: 2 cups Greek yogurt + blueberries + granola + honey + a scoop of whey (or nuts) → ~45 g protein","Add 2–3 eggs or a scramble on strong-hunger mornings — front-loading protein shrinks the night cravings","Protein oats: oats + whey + banana + PB"]},
+      {h:"Lunch — eat enough to coast to dinner",k:"~750–900 kcal · 50 g protein",li:["Keep the sandwich + leftovers, but swap ham for lower-sodium turkey or chicken most days (easier on blood pressure)","Add veg or fruit and make it bigger so you’re not ravenous at night","Burrito bowl or grilled chicken + rice + veg when you want it hot"]},
+      {h:"Dinner",k:"~750–950 kcal · 50 g protein",li:["Your turkey or salmon + vegetables is great — keep it","Save the pasta for the night before a long run (carb top-off)","Make it protein-forward and filling so the 9–10 PM craving is smaller to begin with"]},
+      {h:"Day snacks",k:"~200–400 kcal · 20–30 g protein",li:["Protein bars & meat sticks work — rotate in lower-sodium picks (BP)","Pack a protein-forward snack for the mid-day hunger spike so the impulse sweet buy doesn’t happen","Greek yogurt, cottage cheese + fruit, or a protein coffee"]},
+      {h:"Around long runs",k:"Fuel the work",li:["Don’t go fasted: ~40–60 g carbs beforehand (toast + honey or a banana)","During (>75 min): 30–60 g carbs/hr — practice your gels on runs, not just hikes","After: protein + carbs within ~1 h"]}
+    ];
+    const mc=el('<div class="card"><div class="sectlabel" style="margin-top:0">Meals & snacks</div></div>');
+    meals.forEach(M=>{let li=M.li.map(x=>"<li>"+x+"</li>").join("");
+      mc.appendChild(el('<div class="meal"><h4>'+M.h+' <span>· '+M.k+'</span></h4><ul>'+li+'</ul></div>'));});
+    V.appendChild(mc);
+
+    const health=el('<div class="card"><div class="sectlabel" style="margin-top:0">Health & lifestyle notes (your profile)</div><ul style="margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.8"><li>😴 <b>Sleep is your #1 lever.</b> ~4.5 h drives the evening sugar cravings and blunts recovery — getting toward 6 h helps more than any food swap. Keep your 2nd protein coffee before mid-afternoon.</li><li>🩺 <b>Blood-pressure meds:</b> losing weight often lowers BP, so keep your doctor in the loop — your dose may need adjusting. Trim sodium by easing off processed meats (ham, meat sticks, jerky); lean on potassium-rich produce.</li><li>❤️ <b>HR zones + meds:</b> beta-blockers blunt heart rate, so cross-check effort with RPE. In the heat, BP meds affect hydration — be deliberate with fluids and electrolytes.</li><li>☀️ <b>Vitamin D (low-normal):</b> a dedicated D3 beyond your multivitamin is worth discussing with your doctor — it protects bone under heavy mileage. Salmon and sun help.</li><li>🏃 <b>Fasted runs:</b> fine for easy Z2 mornings; fuel before long and quality sessions, and practice gels on runs before race day.</li></ul></div>');
+    V.appendChild(health);
+
+    const tips=el('<div class="card"><div class="sectlabel" style="margin-top:0">Principles (evidence-based)</div><ul style="margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.7"><li>Total calories drive weight change; protein (~2 g/kg) preserves muscle in a deficit.</li><li>Periodize carbs — more on long/quality days, fewer on easy days.</li><li>Build meals on lean protein + produce + smart carbs; keep fat ≥ ~70 g.</li><li>Hydrate well (Redlands heat) — water + electrolytes on long efforts.</li><li>Judge progress on the 2–3 week scale trend, not daily swings.</li></ul></div>');
+    V.appendChild(tips);
+    V.appendChild(el('<div class="disc">General guidance for a healthy adult, not medical or dietitian advice. For a significant body-composition change alongside heavy training, a registered dietitian or your physician can personalize it — worth a check-in.</div>'));
+  }
+
+  /* ---------- PROGRESS ---------- */
+  function onTrack(){
+    const today=todayISO(),wi=weekInfo(today);
+    // 28-day window
+    let sched=0,doneR=0,tgt=0,lg=0;
+    for(let i=0;i<28;i++){const di=addDays(today,-i),dp=dayFor(di);if(dp.state!=="day"||di>today)continue;
+      sched++;if(isRun(di))doneR++;tgt+=dp.dist;lg+=loggedMiles(di);}
+    if(sched<3)return{cls:"mid",t:"Just getting started",b:"Log a couple weeks of training and your on-track status will sharpen up. Consistency is the whole game right now."};
+    const comp=doneR/sched,vol=tgt>0?lg/tgt:0;
+    // long-run check
+    let expLong=0;if(wi){for(let k=0;k<=wi.wi;k++)expLong=Math.max(expLong,WK[k].lr||0);}
+    let actLong=0;for(const k in data.logs){if(data.logs[k].runDone){const dp=dayFor(k);if(dp.state==="day"&&dp.long){actLong=Math.max(actLong,loggedMiles(k));}}}
+    const lrRatio=expLong>0?actLong/expLong:1;
+    const score=(comp>=.85?2:comp>=.65?1:0)+(vol>=.85?2:vol>=.65?1:0)+(lrRatio>=.85?2:lrRatio>=.6?1:0);
+    let weak=[];if(comp<.85)weak.push("daily consistency ("+Math.round(comp*100)+"% of runs done)");
+    if(vol<.85)weak.push("weekly volume ("+Math.round(vol*100)+"% of target miles)");
+    if(lrRatio<.85)weak.push("long-run buildup (longest done "+(Math.round(actLong*10)/10)+" mi vs ~"+expLong+" expected)");
+    if(score>=5)return{cls:"ok",t:"On track for Ventura 🎯",b:"Over the last 4 weeks you've hit "+Math.round(comp*100)+"% of runs and "+Math.round(vol*100)+"% of target miles, with a longest run of "+(Math.round(actLong*10)/10)+" mi. Keep stacking easy weeks — this is exactly what finishing healthy looks like."};
+    if(score>=3)return{cls:"mid",t:"Mostly on track",b:"Solid base, with room to tighten up: "+weak.join("; ")+". Nudge that back over the next two weeks and you're golden — no need to overcorrect."};
+    return{cls:"no",t:"Time to regroup",b:"You've slipped behind on: "+weak.join("; ")+". Don't try to cram lost miles — just rejoin at this week's plan, prioritize the long run and easy consistency, and let the volume rebuild safely."};
+  }
+  function renderProgress(){
+    const V=document.getElementById("view");V.innerHTML="";
+    const ot=onTrack();
+    V.appendChild(el('<div class="track '+ot.cls+'"><div class="tt">'+ot.t+'</div><div class="tb">'+ot.b+'</div></div>'));
+
+    // streak + totals
+    let streak=0,d=todayISO();while(isRun(d)){streak++;d=addDays(d,-1);}
+    let totalMi=0,doneDays=0;for(const k in data.logs){if(data.logs[k].runDone){doneDays++;totalMi+=loggedMiles(k);}}
+    V.appendChild(el('<div class="stats"><div class="stat"><div class="v num">'+streak+'</div><div class="l">Run streak</div></div><div class="stat"><div class="v num">'+Math.round(totalMi)+'<small> mi</small></div><div class="l">Total logged</div></div><div class="stat"><div class="v num">'+doneDays+'</div><div class="l">Days done</div></div></div>'));
+
+    // weight progress
+    const ws=data.settings.weightStart,wg=data.settings.weightGoal,now=latestWeight();
+    const pct=Math.max(0,Math.min(100,Math.round((ws-now)/(ws-wg)*100)));
+    const wc=el('<div class="card"></div>');
+    wc.appendChild(el('<div class="head"><div><div class="title">Weight</div><div class="sub">Start '+ws+' → goal '+wg+' lb</div></div></div>'));
+    wc.appendChild(el('<div><span class="kcalbig num">'+now+'</span> <span class="kcalbig"><small>lb · '+(now>wg?(Math.round((now-wg)*10)/10)+" to go":"goal reached 🎉")+'</small></span></div>'));
+    wc.appendChild(el('<div class="bar"><i style="width:'+pct+'%;background:var(--done)"></i></div>'));
+
+    // sparkline
+    const pts=[];for(const k in data.logs){if(data.logs[k].weight)pts.push({d:k,w:parseFloat(data.logs[k].weight)});}
+    pts.sort((a,b)=>a.d<b.d?-1:1);
+    if(pts.length>=2){
+      const ws2=pts.map(p=>p.w),mn=Math.min(...ws2,wg),mx=Math.max(...ws2);
+      const W=480,H=80,pad=6;
+      const xs=i=>pad+(W-2*pad)*(i/(pts.length-1));
+      const ys=w=>pad+(H-2*pad)*(1-(w-mn)/((mx-mn)||1));
+      let path="M";pts.forEach((p,i)=>{path+=(i?"L":"")+xs(i).toFixed(1)+" "+ys(p.w).toFixed(1)+" ";});
+      const gy=ys(wg).toFixed(1);
+      wc.appendChild(el('<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><line x1="0" y1="'+gy+'" x2="'+W+'" y2="'+gy+'" stroke="var(--accent)" stroke-dasharray="4 4" stroke-width="1.5" opacity=".6"/><path d="'+path+'" fill="none" stroke="var(--done)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/></svg>'));
+      // rate + projection
+      const days=(parse(pts[pts.length-1].d)-parse(pts[0].d))/DAY;
+      const rate=days>0?(pts[0].w-pts[pts.length-1].w)/days*7:0;
+      let proj="";if(rate>0.1&&now>wg){const wk=(now-wg)/rate;proj="≈ "+rate.toFixed(1)+" lb/week — on pace to reach "+wg+" lb around "+fmtShort(parse(addDays(todayISO(),Math.round(wk*7))));}
+        else if(now<=wg)proj="Goal reached.";else proj="Log more weigh-ins to project your pace.";
+      wc.appendChild(el('<div class="sub" style="margin-top:8px">'+proj+'</div>'));
+    } else {
+      wc.appendChild(el('<div class="sub" style="margin-top:10px">Add weigh-ins on the Today tab to see your trend and projected goal date. Weigh ~weekly, same time of day.</div>'));
+    }
+    V.appendChild(wc);
+
+    V.appendChild(settingsBlock());
+  }
+
+  function settingsBlock(){
+    const s=data.settings;
+    const d=el('<details class="settings"><summary>Settings</summary>'
+      +'<div class="setrow"><label>Plan start (Mon)</label><input type="date" id="sS" value="'+s.startDate+'"></div>'
+      +'<div class="setrow"><label>Race day</label><input type="date" id="sR" value="'+s.raceDate+'"></div>'
+      +'<div class="setrow"><label>Max HR</label><input type="number" id="sH" value="'+s.maxHR+'"></div>'
+      +'<div class="setrow"><label>Start weight (lb)</label><input type="number" id="sW" value="'+s.weightStart+'"></div>'
+      +'<div class="setrow"><label>Goal weight (lb)</label><input type="number" id="sG" value="'+s.weightGoal+'"></div>'
+      +'<div class="setrow"><label>Height (in)</label><input type="number" id="sHt" value="'+s.heightIn+'"></div>'
+      +'<div class="setrow"><label>Age</label><input type="number" id="sAg" value="'+s.age+'"></div>'
+      +'<button class="danger" id="rst">Reset all logged data</button></details>');
+    setTimeout(()=>{
+      const q=id=>d.querySelector(id);
+      q("#sS").onchange=e=>{if(e.target.value){s.startDate=e.target.value;save();refresh();}};
+      q("#sR").onchange=e=>{if(e.target.value){s.raceDate=e.target.value;save();refresh();}};
+      q("#sH").onchange=e=>{const v=+e.target.value;if(v>=120&&v<=220){s.maxHR=v;save();refresh();}};
+      q("#sW").onchange=e=>{const v=+e.target.value;if(v>50){s.weightStart=v;save();refresh();}};
+      q("#sG").onchange=e=>{const v=+e.target.value;if(v>50){s.weightGoal=v;save();refresh();}};
+      q("#sHt").onchange=e=>{const v=+e.target.value;if(v>40){s.heightIn=v;save();refresh();}};
+      q("#sAg").onchange=e=>{const v=+e.target.value;if(v>0){s.age=v;save();refresh();}};
+      q("#rst").onclick=()=>{if(confirm("Erase all logged workouts, food, and weigh-ins? Settings are kept.")){data.logs={};save();refresh();}};
+    },0);
+    return d;
+  }
+
+  /* ---------- tabs ---------- */
+  const TABS=[["today","Today","◎"],["week","Week","▤"],["month","Month","▦"],["fuel","Fuel","◍"],["progress","Progress","◆"]];
+  function buildTabs(){const bar=document.getElementById("tabbar");bar.innerHTML="";
+    TABS.forEach(([k,l,ic])=>{const b=el('<button class="tab'+(viewName===k?" on":"")+'"><span class="ic">'+ic+'</span><span class="tl">'+l+'</span></button>');
+      b.onclick=()=>setView(k);bar.appendChild(b);});}
+  function setView(v){viewName=v;buildTabs();refresh();window.scrollTo(0,0);}
+  function refresh(){setHeader();
+    if(viewName==="today")renderToday();
+    else if(viewName==="week")renderWeek();
+    else if(viewName==="month")renderMonth();
+    else if(viewName==="fuel")renderFuel();
+    else renderProgress();}
+
+  /* ---------- init ---------- */
+  (async function(){
+    const stored=await load();
+    data=stored||JSON.parse(JSON.stringify(DEFAULTS));
+    if(!data.settings)data.settings=JSON.parse(JSON.stringify(DEFAULTS.settings));
+    for(const k in DEFAULTS.settings)if(data.settings[k]==null)data.settings[k]=DEFAULTS.settings[k];
+    if(!data.logs)data.logs={};
+    buildTabs();refresh();
+  })();
+})();
+</script>
+</body>
+</html>
